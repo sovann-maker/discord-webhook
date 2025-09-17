@@ -231,7 +231,7 @@ const HelpSection = ({ isDarkMode = false }) => (
             isDarkMode ? "text-blue-300" : "text-blue-800"
           }`}
         >
-          How to find your repository path(s)
+          How to use GitHub repositories
         </h4>
         <div className="space-y-3">
           <div className="flex items-start space-x-2">
@@ -254,14 +254,14 @@ const HelpSection = ({ isDarkMode = false }) => (
                   isDarkMode ? "text-blue-200" : "text-blue-700"
                 }`}
               >
-                Open your project in VS Code/IDE
+                Go to your GitHub repository
               </p>
               <p
                 className={`text-xs ${
                   isDarkMode ? "text-blue-400" : "text-blue-600"
                 }`}
               >
-                Navigate to your Git repository folder
+                Navigate to your repository on GitHub.com
               </p>
             </div>
           </div>
@@ -286,14 +286,14 @@ const HelpSection = ({ isDarkMode = false }) => (
                   isDarkMode ? "text-blue-200" : "text-blue-700"
                 }`}
               >
-                Open terminal in your project folder
+                Click the green "Code" button
               </p>
               <p
                 className={`text-xs ${
                   isDarkMode ? "text-blue-400" : "text-blue-600"
                 }`}
               >
-                Use Ctrl+` (VS Code) or navigate manually
+                Copy the repository URL from the dropdown
               </p>
             </div>
           </div>
@@ -318,7 +318,7 @@ const HelpSection = ({ isDarkMode = false }) => (
                   isDarkMode ? "text-blue-200" : "text-blue-700"
                 }`}
               >
-                Get the full path
+                Copy the HTTPS URL
               </p>
               <div className="space-y-1 mt-1">
                 <div className="flex items-center space-x-2">
@@ -327,32 +327,16 @@ const HelpSection = ({ isDarkMode = false }) => (
                       isDarkMode ? "bg-blue-800 text-blue-200" : "bg-blue-100"
                     }`}
                   >
-                    pwd
+                    https://github.com/username/repo.git
                   </code>
-                  <span
-                    className={`text-xs ${
-                      isDarkMode ? "text-blue-400" : "text-blue-600"
-                    }`}
-                  >
-                    (Linux/Mac)
-                  </span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <code
-                    className={`px-2 py-1 rounded text-xs font-mono ${
-                      isDarkMode ? "bg-blue-800 text-blue-200" : "bg-blue-100"
-                    }`}
-                  >
-                    cd
-                  </code>
-                  <span
-                    className={`text-xs ${
-                      isDarkMode ? "text-blue-400" : "text-blue-600"
-                    }`}
-                  >
-                    (Windows)
-                  </span>
-                </div>
+                <p
+                  className={`text-xs ${
+                    isDarkMode ? "text-blue-400" : "text-blue-600"
+                  }`}
+                >
+                  Make sure to copy the .git URL
+                </p>
               </div>
             </div>
           </div>
@@ -377,14 +361,14 @@ const HelpSection = ({ isDarkMode = false }) => (
                   isDarkMode ? "text-blue-200" : "text-blue-700"
                 }`}
               >
-                Copy and paste the path
+                Paste the URL here
               </p>
               <p
                 className={`text-xs ${
                   isDarkMode ? "text-blue-400" : "text-blue-600"
                 }`}
               >
-                For multiple repos, add one path per line
+                For multiple repos, add one URL per line
               </p>
             </div>
           </div>
@@ -487,8 +471,11 @@ const RepositorySelector = ({ onRepositorySelect, isDarkMode = false }) => {
                 isDarkMode ? "text-gray-400" : "text-gray-500"
               }`}
             >
-              Enter the full path(s) to your Git repository(ies). One path per
-              line for multiple repositories.
+              Enter GitHub repository URL(s). One URL per line for multiple repositories.
+              <br />
+              <span className="text-orange-500 font-medium">
+                Note: Local file paths are not supported in the deployed version.
+              </span>
             </p>
           </div>
 

@@ -2,8 +2,6 @@
 
 import { exec } from "child_process";
 import { promisify } from "util";
-import { mkdir, rm } from "fs/promises";
-import { join } from "path";
 
 const execAsync = promisify(exec);
 
@@ -16,7 +14,7 @@ const DISCORD_FIELD_VALUE_LIMIT = 1024;
 // Utility functions
 const formatDate = (date) => new Date(date).toISOString().split("T")[0];
 
-// Repository cloning functions
+// GitHub API functions
 const isGitHubUrl = (path) => {
   return path.includes('github.com') || path.startsWith('https://') || path.startsWith('git@');
 };
@@ -27,37 +25,59 @@ const getRepoName = (repoUrl) => {
   return repoName;
 };
 
-const cloneRepository = async (repoUrl, tempDir) => {
-  try {
-    const repoName = getRepoName(repoUrl);
-    const repoPath = join(tempDir, repoName);
-    
-    // Remove existing directory if it exists
-    try {
-      await rm(repoPath, { recursive: true, force: true });
-    } catch (error) {
-      // Directory doesn't exist, that's fine
-    }
-    
-    // Clone the repository
-    const cloneCommand = `git clone ${repoUrl} ${repoPath}`;
-    await execAsync(cloneCommand);
-    
-    return repoPath;
-  } catch (error) {
-    console.error(`Failed to clone repository ${repoUrl}:`, error);
-    throw new Error(`Failed to clone repository: ${error.message}`);
+const getGitHubApiUrl = (repoUrl) => {
+  // Convert GitHub URL to API URL
+  // https://github.com/owner/repo.git -> https://api.github.com/repos/owner/repo
+  const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+  if (match) {
+    const [, owner, repo] = match;
+    return `https://api.github.com/repos/${owner}/${repo.replace('.git', '')}`;
   }
+  return null;
 };
 
-const setupTempDirectory = async () => {
-  const tempDir = '/tmp/discord-webhook-repos';
+const fetchCommitsFromGitHub = async (repoUrl, startDate, endDate, author = null) => {
   try {
-    await mkdir(tempDir, { recursive: true });
+    const apiUrl = getGitHubApiUrl(repoUrl);
+    if (!apiUrl) {
+      throw new Error('Invalid GitHub URL');
+    }
+
+    const params = new URLSearchParams({
+      since: `${startDate}T00:00:00Z`,
+      until: `${endDate}T23:59:59Z`,
+      per_page: '100'
+    });
+
+    if (author) {
+      params.append('author', author);
+    }
+
+    const response = await fetch(`${apiUrl}/commits?${params}`, {
+      headers: {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'discord-webhook-app'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`GitHub API error: ${response.status}`);
+    }
+
+    const commits = await response.json();
+    
+    return commits.map(commit => ({
+      hash: commit.sha.substring(0, 8),
+      author: commit.commit.author.name,
+      time: commit.commit.author.date.split('T')[1].split('.')[0], // Extract time
+      message: commit.commit.message.split('\n')[0], // First line only
+      repository: repoUrl,
+      repoName: getRepoName(repoUrl)
+    }));
   } catch (error) {
-    // Directory might already exist
+    console.error(`Failed to fetch commits from GitHub ${repoUrl}:`, error);
+    throw new Error(`Failed to fetch commits from GitHub: ${error.message}`);
   }
-  return tempDir;
 };
 
 const parseGitLogOutput = (stdout) => {
@@ -114,7 +134,6 @@ const getGitCommitsFromMultipleRepos = async (
 
     let allCommits = [];
     const repoResults = [];
-    const tempDir = await setupTempDirectory();
 
     for (const repoPath of repoPaths) {
       // Clean the path by removing quotes and trimming
@@ -122,47 +141,48 @@ const getGitCommitsFromMultipleRepos = async (
       if (!cleanRepoPath) continue;
 
       try {
-        let actualRepoPath = cleanRepoPath;
+        let commits = [];
         let repoName = cleanRepoPath.split(/[\\\/]/).pop();
 
-        // If it's a GitHub URL, clone it first
+        // If it's a GitHub URL, use GitHub API
         if (isGitHubUrl(cleanRepoPath)) {
-          console.log(`🔄 Cloning repository: ${cleanRepoPath}`);
-          actualRepoPath = await cloneRepository(cleanRepoPath, tempDir);
+          console.log(`🔄 Fetching commits from GitHub: ${cleanRepoPath}`);
+          commits = await fetchCommitsFromGitHub(cleanRepoPath, formattedStartDate, formattedEndDate, author);
           repoName = getRepoName(cleanRepoPath);
-        }
-
-        let gitCommand = buildGitCommand(
-          formattedStartDate,
-          formattedEndDate,
-          actualRepoPath,
-          dateFormat
-        );
-
-        // Add author filter if specified
-        if (author && author.trim()) {
-          gitCommand = gitCommand.replace(
-            "git log",
-            `git log --author="${author.trim()}"`
+        } else {
+          // For local paths, use git command (fallback for local development)
+          let gitCommand = buildGitCommand(
+            formattedStartDate,
+            formattedEndDate,
+            cleanRepoPath,
+            dateFormat
           );
+
+          // Add author filter if specified
+          if (author && author.trim()) {
+            gitCommand = gitCommand.replace(
+              "git log",
+              `git log --author="${author.trim()}"`
+            );
+          }
+
+          const { stdout, stderr } = await execAsync(gitCommand);
+
+          if (stderr) {
+            console.log(`Git stderr for ${cleanRepoPath}:`, stderr);
+          }
+
+          commits = parseGitLogOutput(stdout);
+
+          // Add repository info to each commit
+          commits = commits.map((commit) => ({
+            ...commit,
+            repository: cleanRepoPath,
+            repoName: repoName,
+          }));
         }
 
-        const { stdout, stderr } = await execAsync(gitCommand);
-
-        if (stderr) {
-          console.log(`Git stderr for ${actualRepoPath}:`, stderr);
-        }
-
-        const commits = parseGitLogOutput(stdout);
-
-        // Add repository info to each commit
-        const commitsWithRepo = commits.map((commit) => ({
-          ...commit,
-          repository: cleanRepoPath, // Keep original URL/path
-          repoName: repoName,
-        }));
-
-        allCommits = [...allCommits, ...commitsWithRepo];
+        allCommits = [...allCommits, ...commits];
 
         repoResults.push({
           path: cleanRepoPath,
@@ -255,39 +275,39 @@ const getGitCommits = async (
     // Use different date format for date range vs single date
     const dateFormat = isDateRange ? "%Y-%m-%d %H:%M:%S" : "%H:%M:%S";
     
-    let actualRepoPath = repoPath;
+    let commits = [];
     let repoName = repoPath ? repoPath.split(/[\\\/]/).pop() : null;
 
-    // If it's a GitHub URL, clone it first
+    // If it's a GitHub URL, use GitHub API
     if (repoPath && isGitHubUrl(repoPath)) {
-      console.log(`🔄 Cloning repository: ${repoPath}`);
-      const tempDir = await setupTempDirectory();
-      actualRepoPath = await cloneRepository(repoPath, tempDir);
+      console.log(`🔄 Fetching commits from GitHub: ${repoPath}`);
+      commits = await fetchCommitsFromGitHub(repoPath, formattedStartDate, formattedEndDate, author);
       repoName = getRepoName(repoPath);
-    }
-
-    let gitCommand = buildGitCommand(
-      formattedStartDate,
-      formattedEndDate,
-      actualRepoPath,
-      dateFormat
-    );
-
-    // Add author filter if specified
-    if (author && author.trim()) {
-      gitCommand = gitCommand.replace(
-        "git log",
-        `git log --author="${author.trim()}"`
+    } else if (repoPath) {
+      // For local paths, use git command (fallback for local development)
+      let gitCommand = buildGitCommand(
+        formattedStartDate,
+        formattedEndDate,
+        repoPath,
+        dateFormat
       );
+
+      // Add author filter if specified
+      if (author && author.trim()) {
+        gitCommand = gitCommand.replace(
+          "git log",
+          `git log --author="${author.trim()}"`
+        );
+      }
+
+      const { stdout, stderr } = await execAsync(gitCommand);
+
+      if (stderr) {
+        console.log("Git stderr:", stderr);
+      }
+
+      commits = parseGitLogOutput(stdout);
     }
-
-    const { stdout, stderr } = await execAsync(gitCommand);
-
-    if (stderr) {
-      console.log("Git stderr:", stderr);
-    }
-
-    const commits = parseGitLogOutput(stdout);
     
     // Add repository info to commits if we have a repo
     const commitsWithRepo = repoName ? commits.map(commit => ({
