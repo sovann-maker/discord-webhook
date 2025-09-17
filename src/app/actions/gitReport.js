@@ -2,6 +2,8 @@
 
 import { exec } from "child_process";
 import { promisify } from "util";
+import { mkdir, rm } from "fs/promises";
+import { join } from "path";
 
 const execAsync = promisify(exec);
 
@@ -13,6 +15,50 @@ const DISCORD_FIELD_VALUE_LIMIT = 1024;
 
 // Utility functions
 const formatDate = (date) => new Date(date).toISOString().split("T")[0];
+
+// Repository cloning functions
+const isGitHubUrl = (path) => {
+  return path.includes('github.com') || path.startsWith('https://') || path.startsWith('git@');
+};
+
+const getRepoName = (repoUrl) => {
+  const parts = repoUrl.split('/');
+  const repoName = parts[parts.length - 1].replace('.git', '');
+  return repoName;
+};
+
+const cloneRepository = async (repoUrl, tempDir) => {
+  try {
+    const repoName = getRepoName(repoUrl);
+    const repoPath = join(tempDir, repoName);
+    
+    // Remove existing directory if it exists
+    try {
+      await rm(repoPath, { recursive: true, force: true });
+    } catch (error) {
+      // Directory doesn't exist, that's fine
+    }
+    
+    // Clone the repository
+    const cloneCommand = `git clone ${repoUrl} ${repoPath}`;
+    await execAsync(cloneCommand);
+    
+    return repoPath;
+  } catch (error) {
+    console.error(`Failed to clone repository ${repoUrl}:`, error);
+    throw new Error(`Failed to clone repository: ${error.message}`);
+  }
+};
+
+const setupTempDirectory = async () => {
+  const tempDir = '/tmp/discord-webhook-repos';
+  try {
+    await mkdir(tempDir, { recursive: true });
+  } catch (error) {
+    // Directory might already exist
+  }
+  return tempDir;
+};
 
 const parseGitLogOutput = (stdout) => {
   if (!stdout.trim()) return [];
@@ -68,6 +114,7 @@ const getGitCommitsFromMultipleRepos = async (
 
     let allCommits = [];
     const repoResults = [];
+    const tempDir = await setupTempDirectory();
 
     for (const repoPath of repoPaths) {
       // Clean the path by removing quotes and trimming
@@ -75,10 +122,20 @@ const getGitCommitsFromMultipleRepos = async (
       if (!cleanRepoPath) continue;
 
       try {
+        let actualRepoPath = cleanRepoPath;
+        let repoName = cleanRepoPath.split(/[\\\/]/).pop();
+
+        // If it's a GitHub URL, clone it first
+        if (isGitHubUrl(cleanRepoPath)) {
+          console.log(`🔄 Cloning repository: ${cleanRepoPath}`);
+          actualRepoPath = await cloneRepository(cleanRepoPath, tempDir);
+          repoName = getRepoName(cleanRepoPath);
+        }
+
         let gitCommand = buildGitCommand(
           formattedStartDate,
           formattedEndDate,
-          cleanRepoPath,
+          actualRepoPath,
           dateFormat
         );
 
@@ -93,7 +150,7 @@ const getGitCommitsFromMultipleRepos = async (
         const { stdout, stderr } = await execAsync(gitCommand);
 
         if (stderr) {
-          console.log(`Git stderr for ${cleanRepoPath}:`, stderr);
+          console.log(`Git stderr for ${actualRepoPath}:`, stderr);
         }
 
         const commits = parseGitLogOutput(stdout);
@@ -101,31 +158,25 @@ const getGitCommitsFromMultipleRepos = async (
         // Add repository info to each commit
         const commitsWithRepo = commits.map((commit) => ({
           ...commit,
-          repository: cleanRepoPath,
-          repoName: cleanRepoPath
-            .split(/[\\\/]/)
-            .pop(), // Get folder name
+          repository: cleanRepoPath, // Keep original URL/path
+          repoName: repoName,
         }));
 
         allCommits = [...allCommits, ...commitsWithRepo];
 
         repoResults.push({
           path: cleanRepoPath,
-          name: cleanRepoPath
-            .split(/[\\\/]/)
-            .pop(),
+          name: repoName,
           commitCount: commits.length,
           success: true,
         });
 
-        console.log(`✅ Processed ${cleanRepoPath}: ${commits.length} commits`);
+        console.log(`✅ Processed ${repoName}: ${commits.length} commits`);
       } catch (error) {
         console.error(`❌ Error processing ${cleanRepoPath}:`, error);
         repoResults.push({
           path: cleanRepoPath,
-          name: cleanRepoPath
-            .split(/[\\\/]/)
-            .pop(),
+          name: cleanRepoPath.split(/[\\\/]/).pop(),
           commitCount: 0,
           success: false,
           error: error.message,
@@ -203,10 +254,22 @@ const getGitCommits = async (
 
     // Use different date format for date range vs single date
     const dateFormat = isDateRange ? "%Y-%m-%d %H:%M:%S" : "%H:%M:%S";
+    
+    let actualRepoPath = repoPath;
+    let repoName = repoPath ? repoPath.split(/[\\\/]/).pop() : null;
+
+    // If it's a GitHub URL, clone it first
+    if (repoPath && isGitHubUrl(repoPath)) {
+      console.log(`🔄 Cloning repository: ${repoPath}`);
+      const tempDir = await setupTempDirectory();
+      actualRepoPath = await cloneRepository(repoPath, tempDir);
+      repoName = getRepoName(repoPath);
+    }
+
     let gitCommand = buildGitCommand(
       formattedStartDate,
       formattedEndDate,
-      repoPath,
+      actualRepoPath,
       dateFormat
     );
 
@@ -225,10 +288,18 @@ const getGitCommits = async (
     }
 
     const commits = parseGitLogOutput(stdout);
-    const summary = generateSummary(commits);
+    
+    // Add repository info to commits if we have a repo
+    const commitsWithRepo = repoName ? commits.map(commit => ({
+      ...commit,
+      repository: repoPath,
+      repoName: repoName,
+    })) : commits;
+    
+    const summary = generateSummary(commitsWithRepo);
 
     const baseResult = {
-      commits,
+      commits: commitsWithRepo,
       summary,
     };
 

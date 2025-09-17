@@ -407,9 +407,9 @@ const HelpSection = ({ isDarkMode = false }) => (
               isDarkMode ? "text-blue-200" : "text-blue-700"
             }`}
           >
-            <div>C:\Users\Alex\Documents\Code\react-portfolio</div>
-            <div>D:\Dev\Projects\ecommerce-store</div>
-            <div>E:\Work\Company\mobile-app-backend</div>
+            <div>https://github.com/username/react-portfolio.git</div>
+            <div>https://github.com/username/ecommerce-store.git</div>
+            <div>https://github.com/username/mobile-app-backend.git</div>
           </div>
         </div>
       </div>
@@ -474,7 +474,7 @@ const RepositorySelector = ({ onRepositorySelect, isDarkMode = false }) => {
               id="repoPath"
               value={repoPath}
               onChange={handlePathChange}
-              placeholder="Enter the full path to your Git repository...&#10;Example:&#10;C:\Users\Alex\Documents\Code\react-portfolio&#10;D:\Dev\Projects\ecommerce-store&#10;E:\Work\Company\mobile-app-backend"
+              placeholder="Enter GitHub repository URL(s)...&#10;Example:&#10;https://github.com/username/react-portfolio.git&#10;https://github.com/username/ecommerce-store.git&#10;https://github.com/username/mobile-app-backend.git"
               rows="4"
               className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 resize-none font-mono text-sm ${
                 isDarkMode
