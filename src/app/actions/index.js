@@ -80,6 +80,9 @@ export const sendDiscordMessage = async (prevState, formData) => {
     // Process the image URL
     const imageUrl = processImageUrl(rawFormEntries?.dp);
 
+    // Simulate processing time for better UX
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
     // Generate image variations if URL is provided
     let imageData = null;
     if (imageUrl) {
