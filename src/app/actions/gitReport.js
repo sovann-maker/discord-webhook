@@ -14,6 +14,79 @@ const DISCORD_FIELD_VALUE_LIMIT = 1024;
 // Utility functions
 const formatDate = (date) => new Date(date).toISOString().split("T")[0];
 
+// Commit processing functions
+const processCommits = (commits, startDate = null, endDate = null, excludeWeekends = true) => {
+  if (!commits || commits.length === 0) return [];
+
+  // Convert commits to a more structured format
+  const processedCommits = commits.map(commit => {
+    const commitDate = commit.time.includes(" ") 
+      ? commit.time.split(" ")[0] 
+      : new Date().toISOString().split("T")[0];
+    
+    return {
+      date: commitDate,
+      time: commit.time.includes(" ") ? commit.time.split(" ")[1] : commit.time,
+      message: commit.message,
+      hash: commit.hash,
+      author: commit.author,
+      repository: commit.repository || '',
+      repoName: commit.repoName || ''
+    };
+  });
+
+  // Filter by date range
+  let filteredCommits = processedCommits;
+  
+  if (startDate) {
+    filteredCommits = filteredCommits.filter(commit => 
+      commit.date >= startDate
+    );
+  }
+  
+  if (endDate) {
+    filteredCommits = filteredCommits.filter(commit => 
+      commit.date <= endDate
+    );
+  }
+
+  // Exclude weekends if requested
+  if (excludeWeekends) {
+    filteredCommits = filteredCommits.filter(commit => {
+      const dayOfWeek = new Date(commit.date).getDay();
+      return dayOfWeek !== 0 && dayOfWeek !== 6; // Exclude Sunday (0) and Saturday (6)
+    });
+  }
+
+  // Group commits by date
+  const groupedByDate = filteredCommits.reduce((acc, commit) => {
+    const date = commit.date;
+    if (!acc[date]) {
+      acc[date] = [];
+    }
+    acc[date].push(commit);
+    return acc;
+  }, {});
+
+  // Convert grouped commits to table format
+  const tableData = Object.keys(groupedByDate)
+    .sort()
+    .map(date => {
+      const dayCommits = groupedByDate[date];
+      return {
+        date: date,
+        message: dayCommits.map(c => c.message).join(" | "),
+        time: dayCommits.map(c => c.time).join(", "),
+        hash: dayCommits.map(c => c.hash).join(", "),
+        author: [...new Set(dayCommits.map(c => c.author))].join(", "),
+        repository: [...new Set(dayCommits.map(c => c.repoName).filter(Boolean))].join(", "),
+        commitCount: dayCommits.length
+      };
+    });
+
+  return tableData;
+};
+
 // GitHub API functions
 const isGitHubUrl = (path) => {
   return path.includes('github.com') || path.startsWith('https://') || path.startsWith('git@');
@@ -212,10 +285,14 @@ const getGitCommitsFromMultipleRepos = async (
     });
 
     const summary = generateSummary(allCommits);
+    
+    // Process commits for table view
+    const tableData = processCommits(allCommits, formattedStartDate, formattedEndDate, true);
 
     const baseResult = {
       commits: allCommits,
       summary,
+      tableData,
       repositories: repoResults,
       totalRepos: repoPaths.length,
       successfulRepos: repoResults.filter((r) => r.success).length,
@@ -317,10 +394,14 @@ const getGitCommits = async (
     })) : commits;
     
     const summary = generateSummary(commitsWithRepo);
+    
+    // Process commits for table view
+    const tableData = processCommits(commitsWithRepo, formattedStartDate, formattedEndDate, true);
 
     const baseResult = {
       commits: commitsWithRepo,
       summary,
+      tableData,
     };
 
     if (isDateRange) {

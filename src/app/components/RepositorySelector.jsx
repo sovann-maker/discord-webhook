@@ -231,7 +231,7 @@ const HelpSection = ({ isDarkMode = false }) => (
             isDarkMode ? "text-blue-300" : "text-blue-800"
           }`}
         >
-          How to use GitHub repositories
+          How to 
         </h4>
         <div className="space-y-3">
           <div className="flex items-start space-x-2">
@@ -487,8 +487,20 @@ const RepositorySelector = ({ onRepositorySelect, isDarkMode = false }) => {
           />
         </div>
 
-        {/* Help Section */}
-        <HelpSection isDarkMode={isDarkMode} />
+        {/* Simple Help */}
+        <div
+          className={`p-3 rounded border text-sm ${
+            isDarkMode
+              ? "bg-blue-900/20 border-blue-700/30 text-blue-300"
+              : "bg-blue-50 border-blue-200 text-blue-700"
+          }`}
+        >
+          <p className="font-medium mb-1">💡 How to use:</p>
+          <p>1. Go to your GitHub repository</p>
+          <p>2. Click the green "Code" button</p>
+          <p>3. Copy the HTTPS URL (.git)</p>
+          <p>4. Paste it above</p>
+        </div>
       </div>
     </ModernCard>
   );
