@@ -474,7 +474,7 @@ const RepositorySelector = ({ onRepositorySelect, isDarkMode = false }) => {
               Enter GitHub repository URL(s). One URL per line for multiple repositories.
               <br />
               <span className="text-orange-500 font-medium">
-                Note: Local file paths are not supported in the deployed version.
+                Note: Private repositories are not supported.
               </span>
             </p>
           </div>

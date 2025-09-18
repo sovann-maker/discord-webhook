@@ -227,48 +227,7 @@ const SuccessPreview = ({ formState, isPending, isDarkMode = false }) =>
         </h4>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-        <div className="space-y-2">
-          <div className="flex justify-between">
-            <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
-              Date Range:
-            </span>
-            <span
-              className={`font-medium ${
-                isDarkMode ? "text-gray-200" : "text-gray-800"
-              }`}
-            >
-              {formState.reportData.isDateRange
-                ? `${formState.reportData.startDate} → ${formState.reportData.endDate}`
-                : formState.reportData.date}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
-              Total Commits:
-            </span>
-            <span
-              className={`font-medium ${
-                isDarkMode ? "text-gray-200" : "text-gray-800"
-              }`}
-            >
-              {formState.reportData.commits.length}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
-              Summary:
-            </span>
-            <span
-              className={`font-medium text-right ${
-                isDarkMode ? "text-gray-200" : "text-gray-800"
-              }`}
-            >
-              {formState.reportData.summary}
-            </span>
-          </div>
-        </div>
-
+      <div className="space-y-4">
         {formState.reportData.repositories && (
           <div className="space-y-2">
             <div className="flex justify-between">
@@ -315,6 +274,47 @@ const SuccessPreview = ({ formState, isPending, isDarkMode = false }) =>
             </div>
           </div>
         )}
+
+        <div className="space-y-3 text-sm">
+          <div className="flex justify-between">
+            <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+              Date Range:
+            </span>
+            <span
+              className={`font-medium ${
+                isDarkMode ? "text-gray-200" : "text-gray-800"
+              }`}
+            >
+              {formState.reportData.isDateRange
+                ? `${formState.reportData.startDate} → ${formState.reportData.endDate}`
+                : formState.reportData.date}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+              Total Commits:
+            </span>
+            <span
+              className={`font-medium ${
+                isDarkMode ? "text-gray-200" : "text-gray-800"
+              }`}
+            >
+              {formState.reportData.commits.length}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+              Summary:
+            </span>
+            <span
+              className={`font-medium text-right ${
+                isDarkMode ? "text-gray-200" : "text-gray-800"
+              }`}
+            >
+              {formState.reportData.summary}
+            </span>
+          </div>
+        </div>
       </div>
     </ModernCard>
   );
